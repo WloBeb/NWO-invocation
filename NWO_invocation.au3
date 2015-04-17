@@ -17,6 +17,9 @@
 ; 12. set $testingMode = 0
 ;
 ; RELEASE NOTES
+; 3.21
+;   - small login changes
+;   - small ETA changes
 ; 3.2 
 ;   - detection of menu window changed
 ;   - auto relogin if moved to login screen
@@ -60,6 +63,7 @@ Local $lineStatistic = ""
 Local $lineInvocation = "|"
 Local $user
 Local $pass
+Local $maxLoginName = 0
 
 Func ArePixelsCorrect ($i)
    If PixelGetColor($point[$i*2][1], $point[$i*2][2]) = $point[$i*2][3] And PixelGetColor($point[$i*2+1][1], $point[$i*2+1][2]) = $point[$i*2+1][3] Then
@@ -75,7 +79,7 @@ Func Wait_For_Select_Character_Screen ()
 		 ShowInvocationInfo("")
 		 Return
 	  EndIf
-	  ; if moved to login screen - relogin  
+	  ; if moved to login screen - relogin
 	  If ArePixelsCorrect(0) Then login()
 	  Sleep(500)
    WEnd
@@ -121,7 +125,7 @@ Func Wait_For_Menu_Window()
   While Not ArePixelsCorrect(2)
     Send($GameMenuKey)
     Sleep(500)
-  WEnd 
+  WEnd
   ; close all window or recall menu window (which removes minimap)
   While ArePixelsCorrect(2)
     Send($GameMenuKey)
@@ -156,8 +160,8 @@ Func ShowInvocationInfo ($msg)
 EndFunc
 
 Func login()
-  For $i = 1 To 10
-    Send("{BS}{BS}{BS}{BS}")
+  For $i = 1 To $maxLoginName
+    Send("{BS}")
     Sleep(20)
   Next
   ; insert username and password and "enter world"
@@ -168,12 +172,14 @@ Func login()
 EndFunc
 
 Func StartInvocation()
+  HotKeySet("{F4}", "Pause")
+  AutoItSetOption("SendKeyDownDelay", 50)
   Local $currentSlot = 0, $allSlots = 0
   For $j = 1 To UBound($Account)
     $allSlots = $allSlots + $Account[$j-1][2]
+    If StringLen($Account[$j-1][0]) > $maxLoginName Then $maxLoginName = StringLen($Account[$j-1][0])
   Next
-  HotKeySet("{F4}", "Pause")
-  AutoItSetOption("SendKeyDownDelay", 50)
+  If $maxLoginName < 20 Then $maxLoginName = 20 
   MouseClick("primary", $middleScreen[0], $middleScreen[1])
   Local $StartTimer = TimerInit(), $LoopTimer
   For $j = 1 To UBound($Account)
@@ -184,11 +190,6 @@ Func StartInvocation()
     MouseClick("primary", $logoutButton[0], $logoutButton[1])
     Wait_For_Login_Screen ()
     ; remove old login
-    For $i = 1 To 20
-      Send("{BS}{BS}{BS}{BS}")
-      Sleep(20)
-    Next
-    ; insert username and password and "enter world"
     $user = $Account[$j-1][0]
     $pass = $Account[$j-1][1]
     login()
@@ -199,8 +200,9 @@ Func StartInvocation()
       $lineCharacter = "Invoking: " & $i & " of " & $Account[$j -1][2] & " ( " & $currentSlot & " of " & $allSlots & " total)"
       If $LoopTimer Then
         Local $LastTime = TimerDiff($LoopTimer)
-        Local $AverageTime = TimerDiff($StartTimer)/$currentSlot
-        $lineStatistic = "Last invoke took " & Round($LastTime / 1000, 2) & " seconds to complete" & @CRLF & "ETA: " & Round(($allSlots - $currentSlot) * $AverageTime / 60000, 2) & " minutes to go"
+        Local $AverageTime = TimerDiff($StartTimer)/($currentSlot-1)
+        Local $ETA = Round(($allSlots - $currentSlot + 1) * $AverageTime / 1000)
+        $lineStatistic = "Last invoke took " & Round($LastTime / 1000, 2) & " seconds to complete" & @CRLF & "ETA: " & Floor($ETA/60) & " min " & StringFormat("%02i", Mod($ETA, 60)) & " s to go"
       EndIf
       ShowInvocationInfo("")
       $LoopTimer = TimerInit()
