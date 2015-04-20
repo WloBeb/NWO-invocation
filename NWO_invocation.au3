@@ -17,6 +17,10 @@
 ; 12. set $testingMode = 0
 ;
 ; RELEASE NOTES
+; 3.22
+;   - try to omit initial screen on first character
+;   - when account change select "logout" from menu
+;   - don't press "change character" on last character
 ; 3.21
 ;   - small login changes
 ;   - small ETA changes
@@ -64,63 +68,75 @@ Local $lineInvocation = "|"
 Local $user
 Local $pass
 Local $maxLoginName = 0
+Local $firstCharacter = 1
 
 Func ArePixelsCorrect ($i)
-   If PixelGetColor($point[$i*2][1], $point[$i*2][2]) = $point[$i*2][3] And PixelGetColor($point[$i*2+1][1], $point[$i*2+1][2]) = $point[$i*2+1][3] Then
-	  Return 1
-   EndIf
-   Return 0
+  If PixelGetColor($point[$i*2][1], $point[$i*2][2]) = $point[$i*2][3] And PixelGetColor($point[$i*2+1][1], $point[$i*2+1][2]) = $point[$i*2+1][3] Then
+    Return 1
+  EndIf
+  Return 0
 EndFunc
 
 Func Wait_For_Select_Character_Screen ()
-   ShowInvocationInfo("Waiting for Character Selection Screen")
-   While 1
-	  If ArePixelsCorrect(1) Then
-		 ShowInvocationInfo("")
-		 Return
-	  EndIf
-	  ; if moved to login screen - relogin
-	  If ArePixelsCorrect(0) Then login()
-	  Sleep(500)
+  ShowInvocationInfo("Waiting for Character Selection Screen")
+  While 1
+    If ArePixelsCorrect(1) Then
+      ShowInvocationInfo("")
+      Return
+    EndIf
+    ; if moved to login screen - relogin
+    If ArePixelsCorrect(0) Then login()
+    ; if moved to in game screen - back to character selection
+    If ArePixelsCorrect(2) Then Press_Next_Character(0)
+    Sleep(500)
    WEnd
 EndFunc
 
 Func Wait_For_Login_Screen ()
-   ShowInvocationInfo("Waiting for Login Screen")
-   While 1
-	  If ArePixelsCorrect(0) Then
-		 ShowInvocationInfo("")
-		 Return
-	  EndIf
-	  Sleep(500)
-   WEnd
+  ShowInvocationInfo("Waiting for Login Screen")
+  While 1
+    If ArePixelsCorrect(0) Then
+      ShowInvocationInfo("")
+      Return
+    EndIf
+    ; if on character selection - move to login screen
+    If ArePixelsCorrect(1) Then MouseClick("primary", $logoutButton[0], $logoutButton[1])
+    ; if in game - logout
+    If ArePixelsCorrect(2) Then Press_Next_Character(1)
+    Sleep(500)
+  WEnd
 EndFunc
 
 Func Wait_For_InGame_Screen ()
-   ShowInvocationInfo("Waiting for In-Game Screen")
-   While 1
-	  If ArePixelsCorrect(2) Then
-		 ShowInvocationInfo("")
-		 Return
-	  EndIf
-	  Sleep(500)
-   WEnd
+  ShowInvocationInfo("Waiting for In-Game Screen")
+  While 1
+    If ArePixelsCorrect(2) Then
+      ShowInvocationInfo("")
+      Return
+    EndIf
+    ; On first character try to close additional window
+    If $firstCharacter Then
+      Send("{SPACE}")
+      Sleep(2000)
+    EndIf
+    Sleep(500) 
+  WEnd
 EndFunc
 
 Func Wait_For_Invocation_Window()
-   ShowInvocationInfo("Waiting for Invocation Window")
-   While 1
-	  Send($InvokeKey)
-	  Sleep(500)
-	  If ArePixelsCorrect(4) Then
-		 ShowInvocationInfo("")
-		 Return
-	  EndIf
-	  Send($GameMenuKey)
-   WEnd
+  ShowInvocationInfo("Waiting for Invocation Window")
+  While 1
+    Send($InvokeKey)
+    Sleep(500)
+    If ArePixelsCorrect(4) Then
+      ShowInvocationInfo("")
+      Return
+    EndIf
+    Send($GameMenuKey)
+  WEnd
 EndFunc
 
-Func Wait_For_Menu_Window()
+Func Press_Next_Character($toLogin)
   ; close all windows until you can see minimap
   While Not ArePixelsCorrect(2)
     Send($GameMenuKey)
@@ -131,18 +147,30 @@ Func Wait_For_Menu_Window()
     Send($GameMenuKey)
     Sleep(500)
   WEnd
+  ; move to "Change Character" button (or "Log Out")
+  Sleep(200)
+  For $k = 1 to 3 + $toLogin
+    Send("{DOWN}")
+    Sleep(100)
+  Next
+  ; press it and
+  Sleep(500)
+  For $k = 1 to 3
+    Send("{ENTER}")
+    Sleep(500)
+  Next
 EndFunc
 
 Func Wait_For_CtrlI_Visibility()
-   ShowInvocationInfo("Waiting for Ctrl-I visibility")
-   While 1
-	  If ArePixelsCorrect(5) Or ArePixelsCorrect(6) Then
-		 ShowInvocationInfo("")
-		 Return
-	  EndIf
-	  Send($GameMenuKey)
-	  Sleep(500)
-   WEnd
+  ShowInvocationInfo("Waiting for Ctrl-I visibility")
+  While 1
+    If ArePixelsCorrect(5) Or ArePixelsCorrect(6) Then
+      ShowInvocationInfo("")
+      Return
+    EndIf
+    Send($GameMenuKey)
+    Sleep(500)
+  WEnd
 EndFunc
 
 Func Is_Invocation_Enabled()
@@ -183,11 +211,9 @@ Func StartInvocation()
   MouseClick("primary", $middleScreen[0], $middleScreen[1])
   Local $StartTimer = TimerInit(), $LoopTimer
   For $j = 1 To UBound($Account)
-    Wait_For_Select_Character_Screen ()
     ; activate neverwinter window
     $lineUser = "Account: " & $j &" of " & UBound($Account) & " (" & $Account[$j-1][0] & ")"
     ShowInvocationInfo("")
-    MouseClick("primary", $logoutButton[0], $logoutButton[1])
     Wait_For_Login_Screen ()
     ; remove old login
     $user = $Account[$j-1][0]
@@ -218,6 +244,7 @@ Func StartInvocation()
       Sleep(1000)
       Send("{ENTER}")
       Wait_For_InGame_Screen()
+      $firstCharacter = 0
       Sleep(2000)
       ; try to invoke if it's possible
       Local $InvokeEnd = 0
@@ -233,17 +260,11 @@ Func StartInvocation()
         If Is_Invocation_Disabled() = 1 Then $InvokeEnd = 1
       WEnd
       ; go to character selection screen
-      Wait_For_Menu_Window()
-      Sleep(200)
-      For $k = 1 to 3
-        Send("{DOWN}")
-        Sleep(100)
-      Next
-      Sleep(500)
-      For $k = 1 to 3
-        Send("{ENTER}")
-        Sleep(500)
-      Next
+      If $i < $Account[$j -1][2] Then
+        Press_Next_Character(0)
+      Else
+        If $j < UBound($Account) Then Press_Next_Character(1)
+      EndIf
     Next
     $lineInvocation &= "|"
   Next
@@ -267,39 +288,39 @@ Func Terminate()
 EndFunc
 
 Func GetPoints ()
-   $changed = 0
-   For $i = 0 To UBound($point)-1
-	  $point[$i][4] = PixelGetColor ($point[$i][1], $point[$i][2])
-	  If $point[$i][4] <> $point[$i][5] Then
-		 $changed = 1
-		 $point[$i][5] = $point[$i][4]
-	  EndIf
-   Next
+  $changed = 0
+  For $i = 0 To UBound($point)-1
+    $point[$i][4] = PixelGetColor ($point[$i][1], $point[$i][2])
+    If $point[$i][4] <> $point[$i][5] Then
+      $changed = 1
+      $point[$i][5] = $point[$i][4]
+    EndIf
+  Next
 EndFunc
 
 Func ShowTestInfo()
 Local $msg = ""
-   For $i = 0 To UBound($point)-1
-	  $msg &= $point[$i][0] & " color: " & $point[$i][4] & @CRLF
-   Next
-   If ArePixelsCorrect(1) = 1 Then $msg &= @CRLF & "THIS IS CHARACTER SELECTION SCREEN" & @CRLF
-   If ArePixelsCorrect(0) = 1 Then $msg &= @CRLF & "THIS IS LOGIN SCREEN" & @CRLF
-   If ArePixelsCorrect(2) = 1 Then $msg &= @CRLF & "THIS IS GAME SCREEN" & @CRLF
-   If ArePixelsCorrect(4) = 1 Then $msg &= @CRLF & "INVOCATION WINDOW OPEN" & @CRLF
-   If ArePixelsCorrect(5) = 1 Then $msg &= @CRLF & "INVOCATION ENABLED" & @CRLF
-   If ArePixelsCorrect(6) = 1 Then $msg &= @CRLF & "INVOCATION DISABLED" & @CRLF
-   $msg &= @CRLF & "  To Stop: Press F6"
-   SplashTextOn("", $msg, 380, 300, 20, Default, 1, "", 9)
+  For $i = 0 To UBound($point)-1
+    $msg &= $point[$i][0] & " color: " & $point[$i][4] & @CRLF
+  Next
+  If ArePixelsCorrect(1) = 1 Then $msg &= @CRLF & "THIS IS CHARACTER SELECTION SCREEN" & @CRLF
+  If ArePixelsCorrect(0) = 1 Then $msg &= @CRLF & "THIS IS LOGIN SCREEN" & @CRLF
+  If ArePixelsCorrect(2) = 1 Then $msg &= @CRLF & "THIS IS GAME SCREEN" & @CRLF
+  If ArePixelsCorrect(4) = 1 Then $msg &= @CRLF & "INVOCATION WINDOW OPEN" & @CRLF
+  If ArePixelsCorrect(5) = 1 Then $msg &= @CRLF & "INVOCATION ENABLED" & @CRLF
+  If ArePixelsCorrect(6) = 1 Then $msg &= @CRLF & "INVOCATION DISABLED" & @CRLF
+  $msg &= @CRLF & "  To Stop: Press F6"
+  SplashTextOn("", $msg, 380, 300, 20, Default, 1, "", 9)
 EndFunc
 
 Func StartTest()
-   HotKeySet("{F6}", "Terminate")
-   SplashOff()
-   While 0 < 1
-	  GetPoints()
-	  If $changed <> 0 Then ShowTestInfo()
-	  Sleep(500)
-   WEnd
+  HotKeySet("{F6}", "Terminate")
+  SplashOff()
+  While 0 < 1
+    GetPoints()
+    If $changed <> 0 Then ShowTestInfo()
+    Sleep(500)
+  WEnd
 EndFunc
 
 If $testingMode Then
