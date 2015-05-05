@@ -17,6 +17,10 @@
 ; 12. set $testingMode = 0
 ;
 ; RELEASE NOTES
+; 3.23
+;   - open coffer allowed when 14/14 coins collected 
+;   - for every character ability to define which coffer should to be purchased
+;   - when change character press mouse buttons instead DOWN/ENTER keys
 ; 3.22
 ;   - try to omit initial screen on first character
 ;   - when account change select "logout" from menu
@@ -37,27 +41,38 @@ Local $testingMode = 1
 Local $middleScreen[] = [x coordinate, y coordinate]     ; somewhere in the middle of the screen
 Local $logoutButton[] = [x coordinate, y coordinate]     ; position of logout button on character selection screen
 Local $invocationButton = [x coordinate, y coordinate]   ; position of invocation button in invocation window
+Local $changeCharacter[] = [x coordinate, y coordinate]  ; position of "Change Character" button in game menu
+Local $logOut[] = [x coordinate, y coordinate]           ; position of "Log Out" button in game menu 
+Local $vaultOfPiety[] = [x coordinate, y coordinate]     ; position "Vault of Piety" button when 14/14 coins
+Local $celestialSynergy[] = [x coordinate, y coordinate] ; position of "Celestial Synergy" tab
+Local $redeem[] = [x coordinate, y coordinate]           ; position of "Redeem" button on above tab
+Local $confirmationOK[] = [x coordinate, y coordinate]   ; position of "OK" in every confirmation window
+Local $coffers[][] = [[x coordinate, y coordinate], [x coordinate, y coordinate], [x coordinate, y coordinate]] ; position of 3 coffers
+Local $charCoffer[][] = [ _ ; for every accout, for every character - which coffer to open
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], _
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], _
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]]
 
 Local $Account[][] = [ _ ; on every row: account login, account password, amount of characters (line ended with "   _")
    ["1st acoount name", "1st account password", number_of_characters], _
    ["2nd account name", "2nd account password", number_of_characters], _
    ["3rd account name", "3rd account password", number_of_characters]]
 
-Local $point[][] = [ _ ; in every row: name, X coordinate, Y coordinate, Expected color, 0, -1 (last 2 leave untouched)
-    ["Login screen P1",          0,   0,        0, 0, -1], _ ; get points at the bottom near or at "Login" button
-    ["Login screen P2",          0,   0,        0, 0, -1], _
-    ["Char selection P1",        0,   0,        0, 0, -1], _ ; also at the bottom at "Enter World" button
-    ["Char selection P2",        0,   0,        0, 0, -1], _
-    ["In Game screen P1",        0,   0,        0, 0, -1], _ ; points somewhere near minimap
-    ["In Game screen P2",        0,   0,        0, 0, -1], _ ; beware of sliding markers on the edge of minimap
-    ["Game menu window P1",      0,   0,        0, 0, -1], _ ; Obsolete
-    ["Game menu window P2",      0,   0,        0, 0, -1], _ ; Obsolete
-    ["Invocation window P1",     0,   0,        0, 0, -1], _
-    ["Invocation window P2",     0,   0,        0, 0, -1], _
-    ["CTRL-I caption ON P1",     0,   0,        0, 0, -1], _ ; little Ctrl-I caption which could be white or gray
-    ["CTRL-I caption ON P2",     0,   0,        0, 0, -1], _
-    ["CTRL-I caption OFF P1",    0,   0,        0, 0, -1], _ ; only 4th value should differ from above
-    ["CTRL-I caption OFF P2",    0,   0,        0, 0, -1]]
+Local $point[][] = [ _ ; in every row: name, X coordinate, Y coordinate, Expected color, 0, -1 (leave untouched)
+  ["Login screen P1",          0,   0,        0, 0, -1], _ ; get points at the bottom near or at "Login" button
+  ["Login screen P2",          0,   0,        0, 0, -1], _
+  ["Char selection P1",        0,   0,        0, 0, -1], _ ; also at the bottom at "Enter World" button
+  ["Char selection P2",        0,   0,        0, 0, -1], _
+  ["In Game screen P1",        0,   0,        0, 0, -1], _ ; points somewhere near minimap
+  ["In Game screen P2",        0,   0,        0, 0, -1], _ ; beware of sliding markers on the edge of minimap
+  ["Maximum Blessing P1",      0,   0,        0, 0, -1], _ ; points in 'maximum Blessing' window when 14/14 coins collected
+  ["Maximum Blessing P2",      0,   0,        0, 0, -1], _
+  ["Invocation window P1",     0,   0,        0, 0, -1], _
+  ["Invocation window P2",     0,   0,        0, 0, -1], _
+  ["CTRL-I caption ON P1",     0,   0,        0, 0, -1], _ ; little Ctrl-I caption which could be white or gray
+  ["CTRL-I caption ON P2",     0,   0,        0, 0, -1], _
+  ["CTRL-I caption OFF P1",    0,   0,        0, 0, -1], _ ; only 4th value should differ from above
+  ["CTRL-I caption OFF P2",    0,   0,        0, 0, -1]]
 
 Local $InvokeKey = "^i", $GameMenuKey = "{ESC}"
 Local $changed = 0				; for testing only
@@ -81,6 +96,7 @@ Func Wait_For_Select_Character_Screen ()
   ShowInvocationInfo("Waiting for Character Selection Screen")
   While 1
     If ArePixelsCorrect(1) Then
+      Sleep(500)
       ShowInvocationInfo("")
       Return
     EndIf
@@ -96,6 +112,7 @@ Func Wait_For_Login_Screen ()
   ShowInvocationInfo("Waiting for Login Screen")
   While 1
     If ArePixelsCorrect(0) Then
+      Sleep(500)
       ShowInvocationInfo("")
       Return
     EndIf
@@ -111,6 +128,7 @@ Func Wait_For_InGame_Screen ()
   ShowInvocationInfo("Waiting for In-Game Screen")
   While 1
     If ArePixelsCorrect(2) Then
+      Sleep(500)
       ShowInvocationInfo("")
       Return
     EndIf
@@ -127,7 +145,7 @@ Func Wait_For_Invocation_Window()
   ShowInvocationInfo("Waiting for Invocation Window")
   While 1
     Send($InvokeKey)
-    Sleep(500)
+    Sleep(1000)
     If ArePixelsCorrect(4) Then
       ShowInvocationInfo("")
       Return
@@ -147,18 +165,15 @@ Func Press_Next_Character($toLogin)
     Send($GameMenuKey)
     Sleep(500)
   WEnd
-  ; move to "Change Character" button (or "Log Out")
+  ; click "Change Character" button (or "Log Out")
+  If $toLogin Then
+    MouseClick("primary", $logOut[0], $logOut[1])
+  Else
+    MouseClick("primary", $changeCharacter[0], $changeCharacter[1])
+  EndIf  
   Sleep(200)
-  For $k = 1 to 3 + $toLogin
-    Send("{DOWN}")
-    Sleep(100)
-  Next
-  ; press it and
-  Sleep(500)
-  For $k = 1 to 3
-    Send("{ENTER}")
-    Sleep(500)
-  Next
+  MouseClick("primary", $confirmationOK[0], $confirmationOK[1])
+  Sleep(300)
 EndFunc
 
 Func Wait_For_CtrlI_Visibility()
@@ -199,6 +214,21 @@ Func login()
   Send("{ENTER}")
 EndFunc
 
+
+Func buyCoffer($account, $character)
+  MouseClick("primary", $vaultOfPiety[0], $vaultOfPiety[1])
+  Sleep(200)
+  MouseClick("primary", $celestialSynergy[0], $celestialSynergy[1])
+  Sleep(300)
+  Local $coffer = $charCoffer[$account-1][$character-1]
+  MouseClick("primary", $coffers[$coffer][0], $coffers[$coffer][1])
+  Sleep(300)
+  MouseClick("primary", $redeem[0], $redeem[1])
+  Sleep(200)
+  MouseClick("primary", $confirmationOK[0], $confirmationOK[1])
+  Sleep(300)
+EndFunc
+
 Func StartInvocation()
   HotKeySet("{F4}", "Pause")
   AutoItSetOption("SendKeyDownDelay", 50)
@@ -210,9 +240,11 @@ Func StartInvocation()
   If $maxLoginName < 20 Then $maxLoginName = 20 
   MouseClick("primary", $middleScreen[0], $middleScreen[1])
   Local $StartTimer = TimerInit(), $LoopTimer
+  $lineInvocation = "|"
   For $j = 1 To UBound($Account)
     ; activate neverwinter window
     $lineUser = "Account: " & $j &" of " & UBound($Account) & " (" & $Account[$j-1][0] & ")"
+    $lineCharacter = ""
     ShowInvocationInfo("")
     Wait_For_Login_Screen ()
     ; remove old login
@@ -220,7 +252,6 @@ Func StartInvocation()
     $pass = $Account[$j-1][1]
     login()
     For $i = 1 to $Account[$j -1][2]
-      Wait_For_Select_Character_Screen()
       $currentSlot += 1
       $lineInvocation &= "-"
       $lineCharacter = "Invoking: " & $i & " of " & $Account[$j -1][2] & " ( " & $currentSlot & " of " & $allSlots & " total)"
@@ -230,9 +261,9 @@ Func StartInvocation()
         Local $ETA = Round(($allSlots - $currentSlot + 1) * $AverageTime / 1000)
         $lineStatistic = "Last invoke took " & Round($LastTime / 1000, 2) & " seconds to complete" & @CRLF & "ETA: " & Floor($ETA/60) & " min " & StringFormat("%02i", Mod($ETA, 60)) & " s to go"
       EndIf
-      ShowInvocationInfo("")
       $LoopTimer = TimerInit()
       ; select next character
+      Wait_For_Select_Character_Screen()
       For $k = 2 to $Account[$j -1][2]
         Send("{UP}")
         Sleep(50)
@@ -241,7 +272,7 @@ Func StartInvocation()
         Send("{DOWN}")
         Sleep(50)
       Next
-      Sleep(1000)
+      Sleep(500)
       Send("{ENTER}")
       Wait_For_InGame_Screen()
       $firstCharacter = 0
@@ -254,8 +285,12 @@ Func StartInvocation()
           Wait_For_Invocation_Window()
           Sleep(200)
           MouseClick("primary", $invocationButton[0], $invocationButton[1])
+          Sleep(400)
+          if ArePixelsCorrect(3) Then    ; "Maximum Blessing" window appearas
+            buyCoffer($j, $i) 
+          EndIf  
           $lineInvocation = StringTrimRight($lineInvocation, 1) & "+"
-          Sleep(1000)
+          Sleep(2000)
         EndIf
         If Is_Invocation_Disabled() = 1 Then $InvokeEnd = 1
       WEnd
@@ -265,6 +300,7 @@ Func StartInvocation()
       Else
         If $j < UBound($Account) Then Press_Next_Character(1)
       EndIf
+      Sleep(500)
     Next
     $lineInvocation &= "|"
   Next
@@ -328,3 +364,4 @@ If $testingMode Then
 Else
   Pause()
 EndIf
+
