@@ -174,6 +174,16 @@ Func Press_Next_Character($toLogin)
   Sleep(200)
   MouseClick("primary", $confirmationOK[0], $confirmationOK[1])
   Sleep(300)
+  ; wait until you cann't see minimap (here is sometimes long delay)
+  Local $i=0
+  While $i<5
+    If ArePixelsCorrect(2) Then
+      $i=0
+    Else
+      $i+=1
+    EndIf 
+    Sleep(200)
+  WEnd
 EndFunc
 
 Func Wait_For_CtrlI_Visibility()
@@ -199,7 +209,7 @@ Func Is_Invocation_Disabled()
 EndFunc
 
 Func ShowInvocationInfo ($msg)
-    SplashTextOn("", "To Stop: Press F4." & @CRLF & $lineUser & @CRLF &$lineCharacter & @CRLF & @CRLF & $lineStatistic & @CRLF & @CRLF & $msg & @CRLF & $lineInvocation, 300, 150, Default, 25, 1, "", 9)
+    SplashTextOn("", "To Stop: Press F4." & @CRLF & $lineUser & @CRLF &$lineCharacter & @CRLF & @CRLF & $lineStatistic & @CRLF & @CRLF & $msg & @CRLF & $lineInvocation, 300, 150, Default, 50, 1, "", 9)
 EndFunc
 
 Func login()
@@ -300,7 +310,6 @@ Func StartInvocation()
       Else
         If $j < UBound($Account) Then Press_Next_Character(1)
       EndIf
-      Sleep(500)
     Next
     $lineInvocation &= "|"
   Next
