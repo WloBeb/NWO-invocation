@@ -17,6 +17,8 @@
 ; 12. set $testingMode = 0
 ;
 ; RELEASE NOTES
+; 3.24
+;   - new invocation system (without invocation window)
 ; 3.23
 ;   - open coffer allowed when 14/14 coins collected 
 ;   - for every character ability to define which coffer should to be purchased
@@ -222,21 +224,33 @@ Func login()
   Send("{TAB}")
   Send($pass)
   Send("{ENTER}")
+  ; wait until login screen disapear
+  If ArePixelsCorrect(0) Then
+    Sleep(200)
+  EndIf
 EndFunc
 
 
 Func buyCoffer($account, $character)
   MouseClick("primary", $vaultOfPiety[0], $vaultOfPiety[1])
-  Sleep(200)
-  MouseClick("primary", $celestialSynergy[0], $celestialSynergy[1])
   Sleep(300)
+  MouseClick("primary", $celestialSynergy[0], $celestialSynergy[1])
+  Sleep(1000)
+  MouseClick("primary", $celestialSynergy[0], $celestialSynergy[1])
+  Sleep(3000)
   Local $coffer = $charCoffer[$account-1][$character-1]
   MouseClick("primary", $coffers[$coffer][0], $coffers[$coffer][1])
-  Sleep(300)
-  MouseClick("primary", $redeem[0], $redeem[1])
-  Sleep(200)
+  Sleep(3000)
+  MouseClick("primary", $coffers[$coffer][0], $coffers[$coffer][1])
+  Sleep(100)
+  MouseClick("primary", $coffers[$coffer][0], $coffers[$coffer][1])
+  ;Sleep(100)
+  ;MouseClick("primary", $coffers[$coffer][0], $coffers[$coffer][1])
+  Sleep(2000)
+  ;MouseClick("primary", $redeem[0], $redeem[1])
+  ;Sleep(500)
   MouseClick("primary", $confirmationOK[0], $confirmationOK[1])
-  Sleep(300)
+  Sleep(100)
 EndFunc
 
 Func StartInvocation()
@@ -289,21 +303,29 @@ Func StartInvocation()
       Sleep(2000)
       ; try to invoke if it's possible
       Local $InvokeEnd = 0
-      While $InvokeEnd = 0
-        Wait_For_CtrlI_Visibility()
-        If Is_Invocation_Enabled() = 1 Then
-          Wait_For_Invocation_Window()
-          Sleep(200)
-          MouseClick("primary", $invocationButton[0], $invocationButton[1])
-          Sleep(400)
+      Local $LoopCounter = 0
+      Wait_For_CtrlI_Visibility()
+      If Is_Invocation_Enabled() = 1 Then
+        While $InvokeEnd = 0
+          Send($InvokeKey)
+          Sleep(1500)
           if ArePixelsCorrect(3) Then    ; "Maximum Blessing" window appearas
             buyCoffer($j, $i) 
-          EndIf  
-          $lineInvocation = StringTrimRight($lineInvocation, 1) & "+"
-          Sleep(2000)
-        EndIf
-        If Is_Invocation_Disabled() = 1 Then $InvokeEnd = 1
-      WEnd
+          Else
+            If Is_Invocation_Disabled() = 1 Then 
+              $InvokeEnd = 1
+              $lineInvocation = StringTrimRight($lineInvocation, 1) & "X"
+            Else
+              Sleep(6000)
+              Send("{SPACE}")
+            EndIf
+          EndIf
+          $LoopCounter += 1
+          if $LoopCounter >= 5 Then
+            $InvokeEnd = 1
+          EndIf
+        WEnd  
+      EndIf
       ; go to character selection screen
       If $i < $Account[$j -1][2] Then
         Press_Next_Character(0)
@@ -373,4 +395,3 @@ If $testingMode Then
 Else
   Pause()
 EndIf
-
